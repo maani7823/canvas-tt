@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Canvas Layers</title>
+    <style>
+        body {
+            padding: 0px;
+            margin: 0px;
+            background-color: rgb(1, 22, 58);
+
+        }
+
+        main {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            background-color: black;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <canvas id="myCanvas" width="600" height="600"></canvas>
+    </main>
+    <script>
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const layers = [
+            {
+                name: "layer1",
+                x: 30,//initial position
+                y: 30,//initial position
+                width: 500,
+                height: 500,
+                scaleFactor: 1,
+                active: false,
+                type: "image",
+                url: 'https://images.pexels.com/photos/14998052/pexels-photo-14998052/free-photo-of-photo-of-a-camera-body-on-yellow-background.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500',
+                rotation: 0,
+            },
+
+            {
+                name: "lineOne",
+                x: 30,
+                y: 30,
+                width: 100,
+                height: 100,
+                scaleFactor: 1,
+                active: false,
+                type: "text",
+                fontSize: 43,
+                fontWeight: 23,
+                text: 'This is line',
+                color: 'white',
+                //here you can add any properties like fontFamily etc
+                rotation: 0,
+            },
+            // you can add other types like rectangle etc
+        ]
+
+        function draw() {
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            layers.forEach((item) => {
+                if (item.type === "image") {
+                    drawImage(item);
+                } else if (item.type === "text") {
+                    drawText(item);
+                }
+            });
+        }
+
+
+        function drawImage(item) {
+
+            if (!item.img) {
+                let image = new Image();
+                image.src = item.url;
+                item.img = image;
+                image.onload = () => {
+                    draw();
+                }
+                return;
+            }
+
+            ctx.save();
+            const centerX = item.x + item.width / 2;
+            const centerY = item.y + item.height / 2;
+            ctx.translate(centerX, centerY);
+            ctx.rotate(item.rotation);
+            const aspectRatio = item.img.width / item.img.height;
+            // Adjust either the width or height based on the aspect ratio
+            let drawWidth = item.width;
+            let drawHeight = item.height;
+            if (item.width / item.height !== aspectRatio) {
+                if (item.width / item.height > aspectRatio) {
+                    drawWidth = item.height * aspectRatio;
+                } else {
+                    drawHeight = item.width / aspectRatio;
+                }
+            }
+
+            ctx.scale(item.scaleFactor, item.scaleFactor);
+            ctx.translate(-centerX, -centerY);
+            ctx.drawImage(item.img, item.x, item.y, drawWidth, drawHeight);
+
+            ctx.restore();
+        }
+
+
+        function drawText(item) {
+
+            ctx.save();
+            ctx.fillStyle = item.color;
+            ctx.font = `${item.fontWeight} ${item.fontSize * item.scaleFactor}px ${item.fontFamily}`;
+            const textWidth = ctx.measureText(item.text).width;
+            item.width = textWidth;
+            item.height = item.fontSize;
+            item.calculatedY = item.y - item.height;
+            ctx.fillText(item.text, item.x, item.y);
+            ctx.restore()
+        }
+
+
+        draw();
+
+
+
+
+
+
+
+        let isDragging = false;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        function getClientCoordinates(e) {
+            var canvasRect = canvas.getBoundingClientRect();
+            var scaleX = canvas.width / canvasRect.width;
+            var scaleY = canvas.height / canvasRect.height;
+            return {
+                x: (e.clientX - canvasRect.left) * scaleX,
+                y: (e.clientY - canvasRect.top) * scaleY,
+            };
+        }
+
+        function IsThePointerInTheObject(x, y, object) {
+            const scaledWidth = object.width * object.scaleFactor;
+            const scaledHeight = object.height * object.scaleFactor;
+            let centerX = object.x + object.width / 2;
+            let centerY = object.y + object.height / 2;
+            let newX = centerX - scaledWidth / 2;
+            let newY = centerY - scaledHeight / 2;
+            if (
+                x >= newX &&
+                x <= newX + scaledWidth &&
+                y >= newY &&
+                y <= newY + scaledHeight
+            ) {
+                return true;
+            }
+            return false;
+        }
+
+        canvas.addEventListener('mousedown', (event) => {
+            let coordinates = getClientCoordinates(event);
+            layers.forEach((item) => {
+                item.active = false;
+            });
+            for (let obj of layers) {
+                if (IsThePointerInTheObject(coordinates.x, coordinates.y, obj)) {
+                    isDragging = true;
+                    offsetX = coordinates.x - obj.x;
+                    offsetY = coordinates.y - obj.y;
+                    obj.active = true;
+                    break;
+                }
+            }
+        })
+
+        canvas.addEventListener('mousemove', (event) => {
+            let coordinates = getClientCoordinates(event);
+            if (isDragging) {
+                let activeObject = layers.find((dr) => dr.active === true);
+                if (activeObject) {
+                    activeObject.x = coordinates.x - offsetX;
+                    activeObject.y = coordinates.y - offsetY;
+                }
+                draw();
+            }
+        })
+
+
+        canvas.addEventListener('mouseup',
+            (e) => {
+                isDragging = false;
+                draw()
+            })
+
+        canvas.addEventListener('wheel', (event) => {
+            event.preventDefault();
+            let activeObject = layers.find((dr) => dr.active === true);
+            if (activeObject) {
+                if (event.deltaY < 0) {
+                    activeObject.scaleFactor *= 1.1;
+                } else {
+                    activeObject.scaleFactor /= 1.1;
+                }
+                this.draw();
+            }
+        })
+
+
+        window.addEventListener("keydown", function (event) {
+            let activeObject = layers.find((dr) => dr.active === true);
+            if (activeObject) {
+                if (event.key === "ArrowUp") {
+                    activeObject.rotation -= 0.1;
+                } else if (event.key === "ArrowDown") {
+                    activeObject.rotation += 0.1;
+                } else if (event.key === "ArrowLeft") {
+                    activeObject.rotation -= 0.1;
+                } else if (event.key === "ArrowRight") {
+                    activeObject.rotation += 0.1;
+                }
+                draw();
+            }
+        });
+    </script>
+</body>
+
+</html>
