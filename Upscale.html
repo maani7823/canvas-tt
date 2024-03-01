@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upscale Image</title>
+
+    <style>
+        .container {
+            width: 200px;
+            display: flex;
+            justify-content: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+    </style>
+</head>
+
+
+<body>
+    <h1>Upload an Image</h1>
+    <div class="container">
+        <input type="file" id="imageInput" accept="image/*">
+        <input type="number" id="width_input" value="1920" placeholder="width">
+        <input type="number" id="height_input" value="1920" placeholder="height">
+    </div>
+
+    <script>
+        document.getElementById('imageInput').addEventListener('change', handleImageInput);
+        function handleImageInput() {
+            const input = document.getElementById('imageInput');
+            const file = input.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = function () {
+                    const imageDataUrl = reader.result;
+                    const img = new Image();
+                    img.src = imageDataUrl
+                    img.onload = () => {
+                        processImage(img);
+                    }
+                };
+                reader.onerror = function (error) {
+                    console.error('Error reading the file: ', error);
+                };
+            }
+        }
+
+        function processImage(img) {
+            let width = document.getElementById("width_input").value;
+            let height = document.getElementById("height_input").value;
+
+    
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = width;
+            canvas.height = height;
+            var imageWidth = canvas.width;
+            var imageHeight = img.height * (imageWidth / canvas.width);
+            var centerX = canvas.width / 2;
+            var centerY = canvas.height / 2;
+            var x = centerX - imageWidth / 2;
+            var y = centerY - imageHeight / 2;            
+            ctx.drawImage(img, x, y, imageWidth, imageHeight);
+
+            let dataUrl = canvas.toDataURL('image/png',0.9)
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = 'upscaled.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+        }
+    </script>
+</body>
+
+</html>
