@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Merge Audio and Video</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    .upload-container {
+      margin-bottom: 20px;
+    }
+    #progressBar {
+      width: 100%;
+      background-color: #f3f3f3;
+      margin-top: 10px;
+      height: 20px;
+      display: none;
+    }
+    #progressBarFill {
+      height: 100%;
+      width: 0;
+      background-color: #4caf50;
+      text-align: center;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Merge Audio and Video</h1>
+
+  <div class="upload-container">
+    <label for="videoUpload">Upload Video:</label>
+    <input type="file" id="videoUpload" accept="video/*">
+  </div>
+
+  <div class="upload-container">
+    <label for="audioUpload">Upload Audio:</label>
+    <input type="file" id="audioUpload" accept="audio/*">
+  </div>
+
+  <video id="videoPreview" width="640" height="360" controls style="display: none;"></video>
+
+  <div id="progressBar">
+    <div id="progressBarFill">0%</div>
+  </div>
+
+  <button id="createVideoBtn" disabled>Create Video</button>
+
+  <canvas id="canvas" width="640" height="360" style="display:none;"></canvas>
+
+  <script src="">
+
+
+
+
+
+const videoUpload = document.getElementById('videoUpload');
+const audioUpload = document.getElementById('audioUpload');
+const videoPreview = document.getElementById('videoPreview');
+const createVideoBtn = document.getElementById('createVideoBtn');
+let videoFile, audioFile;
+
+videoUpload.addEventListener('change', handleVideoUpload);
+audioUpload.addEventListener('change', handleAudioUpload);
+
+function handleVideoUpload(event) {
+  videoFile = event.target.files[0];
+  if (videoFile) {
+    const videoURL = URL.createObjectURL(videoFile);
+    videoPreview.src = videoURL;
+    videoPreview.style.display = 'block';
+    checkFiles();
+  }
+}
+
+function handleAudioUpload(event) {
+  audioFile = event.target.files[0];
+  checkFiles();
+}
+
+function checkFiles() {
+  if (videoFile && audioFile) {
+    createVideoBtn.disabled = false;
+  }
+}
+
+
+const canvas = document.getElementById('canvas');
+const progressBar = document.getElementById('progressBar');
+const progressBarFill = document.getElementById('progressBarFill');
+let mediaRecorder, recordedChunks = [];
+
+createVideoBtn.addEventListener('click', () => {
+  createVideoBtn.disabled = true;
+  progressBar.style.display = 'block';
+  recordedChunks = [];
+
+  // Set up the canvas for recording
+  const context = canvas.getContext('2d');
+  videoPreview.play();
+
+  // Draw the video frames onto the canvas
+  function drawFrame() {
+    if (!videoPreview.paused && !videoPreview.ended) {
+      context.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
+      requestAnimationFrame(drawFrame);
+    }
+  }
+  drawFrame();
+
+  // Capture the canvas stream and audio stream
+  const canvasStream = canvas.captureStream(30); // 30 FPS
+  const audioStream = new AudioContext().createMediaElementSource(new Audio(URL.createObjectURL(audioFile)));
+  const destination = audioStream.context.createMediaStreamDestination();
+  audioStream.connect(destination);
+
+  const combinedStream = new MediaStream([
+    ...canvasStream.getVideoTracks(),
+    ...destination.stream.getAudioTracks()
+  ]);
+
+  // Set up MediaRecorder to record the merged stream
+  mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' });
+
+  mediaRecorder.ondataavailable = event => {
+    if (event.data.size > 0) {
+      recordedChunks.push(event.data);
+    }
+  };
+
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    const downloadLink = document.createElement('a');
+    downloadLink.href = url;
+    downloadLink.download = 'merged-video.webm';
+    downloadLink.textContent = 'Download Merged Video';
+    document.body.appendChild(downloadLink);
+
+    progressBarFill.style.width = '100%';
+    progressBarFill.textContent = '100%';
+    createVideoBtn.disabled = false;
+  };
+
+  mediaRecorder.onstart = () => {
+    const duration = videoPreview.duration * 1000;
+    const interval = setInterval(() => {
+      const currentTime = videoPreview.currentTime * 1000;
+      const progress = (currentTime / duration) * 100;
+      progressBarFill.style.width = `${progress}%`;
+      progressBarFill.textContent = `${Math.floor(progress)}%`;
+
+      if (videoPreview.paused || videoPreview.ended) {
+        clearInterval(interval);
+      }
+    }, 100);
+  };
+
+  mediaRecorder.start();
+  setTimeout(() => {
+    mediaRecorder.stop();
+  }, videoPreview.duration * 1000);
+});
+
+
+
+
+</script>
+  
+</body>
+</html>
